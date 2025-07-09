@@ -88,16 +88,17 @@ bang_characters = {
 }
 
 
-# Helper to normalize display name to key
+# Normalize name for lookup
 def normalize(name: str) -> str:
     return "".join(ch.lower() for ch in name if ch.isalnum())
 
+# Assign characters
 def assign_characters(player_list, selected_pools):
     available = []
     for pool, include in selected_pools.items():
         if include:
             available.extend(character_pools[pool])
-    if len(available) < len(player_list)*2:
+    if len(available) < len(player_list) * 2:
         st.error("Not enough characters selected.")
         return {}
     random.shuffle(player_list)
@@ -109,42 +110,41 @@ def assign_characters(player_list, selected_pools):
             available.remove(c)
     return assignments
 
-# Streamlit UI
+# App title
 st.title("Bang! Game Setup Helper")
 
+with st.form("bang_setup"):
+    # Player names input
+    names_input = st.text_input("Enter player names (comma-separated, 4–8 players)")
+    players = [n.strip().capitalize() for n in names_input.split(",") if n.strip()]
+    
+    # Expansion checkboxes with tooltips
+    st.subheader("Select Expansions")
+    selected_pools = {
+        pool: st.checkbox(pool, value=True, help=f"Include characters from {pool} expansion")
+        for pool in character_pools
+    }
 
-# 1. Player names input
-names_input = st.text_input("Enter player names (comma-separated, 4–8 players)")
-players = [n.strip().capitalize() for n in names_input.split(",") if n.strip()]
+    submitted = st.form_submit_button("Generate Setup")
 
-# 2. Expansion selectors always visible
-st.subheader("Select Expansions")
-selected_pools = {
-    pool: st.checkbox(pool, value=True)
-    for pool in character_pools
-}
-
-# 3. Generate Setup button
-if st.button("Generate Setup"):
+if submitted:
     if not (4 <= len(players) <= 8):
         st.error("Requires 4–8 players.")
+    elif len(players) != len(set(players)):
+        st.error("Duplicate names detected. Please enter unique player names.")
     else:
         sheriff = random.choice(players)
         seating = random.sample(players, len(players))
         st.markdown(f"**Sheriff:** {sheriff}")
         st.markdown(f"**Seating order:** {' → '.join(seating)}")
 
-        # Assign two options per player
+        # Assign characters
         char_map = assign_characters(players, selected_pools)
         if char_map:
             st.subheader("Character Options (choose one)")
             for player, options in char_map.items():
-                # Display both options and their abilities
-                opt1, opt2 = options
                 st.markdown(f"**{player}:**")
                 for opt in options:
                     key = normalize(opt)
                     ability = bang_characters.get(key, "Ability not found.")
-                    st.markdown(f"- {opt}: {ability}")
-
-
+                    st.markdown(f"<details><summary>{opt}</summary>{ability}</details>", unsafe_allow_html=True)
